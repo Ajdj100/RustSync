@@ -1,0 +1,13 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bincode = "2.0.1"
+
+
+[lib]
+name = "packet"
+path = "src/packet2.rs"
+crate-type = ["lib"]
