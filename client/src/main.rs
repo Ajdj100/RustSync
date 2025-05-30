@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let root = std::env::current_dir()?;
     let root_name = root.file_name().unwrap();
     let mut stream = tokio::net::TcpStream::connect("127.0.0.1:2600").await?;
-    let mut sent_files: u64 = 0;
+    let mut sent_files: Vec<String> = Vec::new();
 
     for entry in WalkDir::new(&root) {
         let entry = entry?;
@@ -47,10 +47,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 send(&mut stream, &chunk_msg.encode()).await?;
             }
 
-            send(&mut stream, &SyncMessage::EndFile).await?;
-            sent_files += 1;
+            send(&mut stream, &SyncMessage::EndFile.encode()).await?;
+
+            let encoded_checksum = recieve(&mut stream).await?;
+            let checksum = SyncMessage::decode(&encoded_checksum);
+
+            if let Some(name) = entry.file_name().to_str() {
+                println!("{name}");
+                // sent_files.push(name.to_string());
+            }
         }
     }
-    println!("Backed up {sent_files} files");
     Ok(())
 }

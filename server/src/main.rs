@@ -59,7 +59,12 @@ async fn handle_client(
                 }
             }
             SyncMessage::EndFile => {
+                //ack the completed file (and send checksum eventually)
+                utils::net::send(stream, &packet::SyncMessage::EndFileAck { checksum: vec![0u8] }.encode()).await?;
                 cur_file = None;
+            }
+            SyncMessage::EndFileAck { checksum: _ } => {
+                println!("Somehow the server recieved an EndFileAck, this should never happen.")
             }
         }
     }
