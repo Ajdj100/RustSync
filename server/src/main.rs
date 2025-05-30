@@ -66,6 +66,9 @@ async fn handle_client(
             SyncMessage::EndFileAck { checksum: _ } => {
                 println!("Somehow the server recieved an EndFileAck, this should never happen.")
             }
+            _ => {
+                println!("Recieved malformed packet, this was either corrupted or not sent by the client")
+            }
         }
     }
     Ok(())
