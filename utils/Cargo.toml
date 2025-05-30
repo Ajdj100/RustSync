@@ -5,9 +5,4 @@ edition = "2024"
 
 [dependencies]
 bincode = "2.0.1"
-
-
-[lib]
-name = "packet"
-path = "src/packet2.rs"
-crate-type = ["lib"]
+tokio = { version = "1.45.1", features = ["full"] }

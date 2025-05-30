@@ -1,19 +1,10 @@
-use packet::SyncMessage;
+use utils::packet::SyncMessage;
+use utils::net::{send, recieve};
 use std::error::Error;
 use std::path::PathBuf;
 use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt};
 use walkdir::WalkDir;
-
-async fn send(stream: &mut tokio::net::TcpStream, msg: &SyncMessage) -> Result<(), Box<dyn Error>> {
-    // dbg!(&msg);
-    let data = msg.encode();
-    let len = (data.len() as u32).to_be_bytes();
-
-    stream.write_all(&len).await?;
-    stream.write_all(&data).await?;
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -34,7 +25,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let message = SyncMessage::MakeDir {
                 relative_path: rel_path,
             };
-            send(&mut stream, &message).await?;
+            send(&mut stream, &message.encode()).await?;
         } else {
             let mut file = File::open(path).await?;
             let meta = file.metadata().await?;
@@ -42,7 +33,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 relative_path: rel_path.clone(),
                 file_size: meta.len(),
             };
-            send(&mut stream, &message).await?;
+            send(&mut stream, &message.encode()).await?;
 
             let mut buffer = [0u8; 65536];
             loop {
@@ -53,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let chunk_msg = SyncMessage::FileChunk {
                     data: buffer[..n].to_vec(),
                 };
-                send(&mut stream, &chunk_msg).await?;
+                send(&mut stream, &chunk_msg.encode()).await?;
             }
 
             send(&mut stream, &SyncMessage::EndFile).await?;

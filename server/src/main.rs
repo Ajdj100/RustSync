@@ -1,9 +1,11 @@
 use tokio::fs;
-use tokio::{io::AsyncReadExt, net::TcpListener};
+use tokio::net::TcpListener;
 
-use packet::SyncMessage;
+use utils::net::recieve;
+use utils::packet::{self, SyncMessage};
 use std::error::Error;
 use std::io::Write;
+use std::vec;
 use std::{fs::File, path::Path};
 
 #[tokio::main]
@@ -33,17 +35,12 @@ async fn handle_client(
     let mut cur_file: Option<File> = None;
 
     loop {
-        let mut len_buf = [0u8; 4];
-        if stream.read_exact(&mut len_buf).await.is_err() {
-            break;
-        }
-        let len = u32::from_be_bytes(len_buf);
+        //recieve incoming communications
+        let buf = recieve(stream).await?;
+        //decode communications
+        let msg = SyncMessage::decode(&buf);
 
-        let mut buf = vec![0u8; len as usize];
-        stream.read_exact(&mut buf).await?;
-
-        let msg = packet::SyncMessage::decode(&buf);
-
+        //handle comm types
         match msg {
             SyncMessage::MakeDir { relative_path } => {
                 let path = base_path.join(relative_path);
