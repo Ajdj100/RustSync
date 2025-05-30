@@ -14,6 +14,9 @@ pub enum SyncMessage {
         data: Vec<u8>,
     },
     EndFile,
+    EndFileAck {
+        checksum: Vec<u8>,
+    },
 }
 
 //universal bincode config init
