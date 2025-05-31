@@ -2,7 +2,7 @@ use bincode::{Decode, Encode};
 use std::path::PathBuf;
 
 #[derive(Encode, Decode, Debug)]
-pub enum SyncMessage {
+pub enum Packet {
     MakeDir {
         relative_path: PathBuf,
     },
@@ -17,6 +17,7 @@ pub enum SyncMessage {
     EndFileAck {
         checksum: Vec<u8>,
     },
+    EndSession,
 }
 
 //universal bincode config init
@@ -26,15 +27,15 @@ fn conf() -> impl bincode::config::Config {
         .with_fixed_int_encoding()
 }
 
-impl SyncMessage {
+impl Packet {
     pub fn encode(&self) -> Vec<u8> {
         let data = bincode::encode_to_vec(self, conf()).expect("Failed to encode");
 
         return data;
     }
 
-    pub fn decode(buf: &[u8]) -> SyncMessage {
-        let (msg, _): (SyncMessage, usize) =
+    pub fn decode(buf: &[u8]) -> Packet {
+        let (msg, _): (Packet, usize) =
             bincode::borrow_decode_from_slice(buf, conf()).expect("Failed to decode");
 
         return msg;
@@ -48,14 +49,14 @@ mod tests {
 
     #[test]
     fn test_encode_decode_makedir() {
-        let original = SyncMessage::MakeDir {
+        let original = Packet::MakeDir {
             relative_path: PathBuf::from("some/path"),
         };
 
         let encoded = original.encode();
-        let decoded = SyncMessage::decode(&encoded);
+        let decoded = Packet::decode(&encoded);
 
-        if let SyncMessage::MakeDir { relative_path } = decoded {
+        if let Packet::MakeDir { relative_path } = decoded {
             assert_eq!(relative_path, PathBuf::from("some/path"));
         } else {
             panic!("Decoded variant does not match MakeDir");
@@ -64,15 +65,15 @@ mod tests {
 
     #[test]
     fn test_encode_decode_beginfile() {
-        let original = SyncMessage::BeginFile {
+        let original = Packet::BeginFile {
             relative_path: PathBuf::from("file.txt"),
             file_size: 123456,
         };
 
         let encoded = original.encode();
-        let decoded = SyncMessage::decode(&encoded);
+        let decoded = Packet::decode(&encoded);
 
-        if let SyncMessage::BeginFile {
+        if let Packet::BeginFile {
             relative_path,
             file_size,
         } = decoded
@@ -87,12 +88,12 @@ mod tests {
     #[test]
     fn test_encode_decode_filechunk() {
         let data = vec![1, 2, 3, 4, 5];
-        let original = SyncMessage::FileChunk { data: data.clone() };
+        let original = Packet::FileChunk { data: data.clone() };
 
         let encoded = original.encode();
-        let decoded = SyncMessage::decode(&encoded);
+        let decoded = Packet::decode(&encoded);
 
-        if let SyncMessage::FileChunk { data: decoded_data } = decoded {
+        if let Packet::FileChunk { data: decoded_data } = decoded {
             assert_eq!(decoded_data, data);
         } else {
             panic!("Decoded variant does not match FileChunk");
@@ -101,11 +102,11 @@ mod tests {
 
     #[test]
     fn test_encode_decode_endfile() {
-        let original = SyncMessage::EndFile;
+        let original = Packet::EndFile;
 
         let encoded = original.encode();
-        let decoded = SyncMessage::decode(&encoded);
+        let decoded = Packet::decode(&encoded);
 
-        matches!(decoded, SyncMessage::EndFile); // this will panic if not EndFile
+        matches!(decoded, Packet::EndFile); // this will panic if not EndFile
     }
 }

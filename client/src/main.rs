@@ -1,9 +1,9 @@
-use utils::packet::SyncMessage;
+use utils::packet::Packet;
 use utils::net::{send, recieve};
 use std::error::Error;
 use std::path::PathBuf;
 use tokio::fs::File;
-use tokio::io::{AsyncReadExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use walkdir::WalkDir;
 
 #[tokio::main]
@@ -22,14 +22,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let rel_path = PathBuf::from(&root_name).join(rel);
 
         if entry.file_type().is_dir() {
-            let message = SyncMessage::MakeDir {
+            let message = Packet::MakeDir {
                 relative_path: rel_path,
             };
             send(&mut stream, &message.encode()).await?;
         } else {
             let mut file = File::open(path).await?;
             let meta = file.metadata().await?;
-            let message = SyncMessage::BeginFile {
+            let message = Packet::BeginFile {
                 relative_path: rel_path.clone(),
                 file_size: meta.len(),
             };
@@ -41,22 +41,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if n == 0 {
                     break;
                 }
-                let chunk_msg = SyncMessage::FileChunk {
+                let chunk_msg = Packet::FileChunk {
                     data: buffer[..n].to_vec(),
                 };
                 send(&mut stream, &chunk_msg.encode()).await?;
             }
 
-            send(&mut stream, &SyncMessage::EndFile.encode()).await?;
+            send(&mut stream, &Packet::EndFile.encode()).await?;
 
-            let encoded_checksum = recieve(&mut stream).await?;
-            let checksum = SyncMessage::decode(&encoded_checksum);
+            // let encoded_ack = recieve(&mut stream).await?;
+            // let ack = SyncMessage::decode(&encoded_ack);
+            // // let client_checksum = 
+            // print!("{} ", rel_path.display());
 
             if let Some(name) = entry.file_name().to_str() {
-                println!("{name}");
+                println!("{name}", );
                 // sent_files.push(name.to_string());
             }
         }
     }
+    // recieve(&mut stream).await?;
+
+    send(&mut stream, &Packet::EndSession.encode()).await?;
+    stream.shutdown().await?;
+    println!("done");
     Ok(())
 }
