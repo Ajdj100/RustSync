@@ -1,34 +1,63 @@
 use checksums::hash_file;
+use clap::Parser;
+use cli::Args;
+use config::{load_or_create_config, save_config, ServerConfig};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
-use utils::net::recieve;
-use utils::packet::{Packet};
+use std::env::args;
 use std::error::Error;
 use std::io::Write;
 use std::path::PathBuf;
-use std::vec;
 use std::{fs::File, path::Path};
+use utils::net::recieve;
+use utils::packet::Packet;
+
+mod config;
+mod cli;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let addr = "127.0.0.1:2600".to_string();
+    let config = build_config().unwrap();
+
+    let addr = config.addr;
+    let path: PathBuf = PathBuf::from(&config.backup_dir);
 
     let listener = TcpListener::bind(&addr).await?;
     println!("Listening on: {addr}");
-
-    let path = Path::new("./backup");
+    println!("File backups at: {}", path.display());
 
     loop {
         let (mut socket, _) = listener.accept().await?;
+        let path = path.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = handle_client(&mut socket, path).await {
+            if let Err(e) = handle_client(&mut socket, &path).await {
                 eprintln!("Error handling client: {e:?}");
             }
         });
     }
+}
+
+fn build_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let mut config = load_or_create_config();
+
+    if let Some(address) = args.address {
+        config.addr = address;
+    }
+
+    if let Some(dir) = args.backup_dir {
+        config.backup_dir = dir;
+    }
+
+    if args.save {
+        save_config(&config)?;
+        println!("Saved configuration")
+    }
+
+    Ok(config)
 }
 
 async fn handle_client(
@@ -36,7 +65,7 @@ async fn handle_client(
     base_path: &Path,
 ) -> Result<(), Box<dyn Error>> {
     let mut cur_file: Option<File> = None;
-    let mut file_path: PathBuf =  PathBuf::new();
+    let mut file_path: PathBuf = PathBuf::new();
 
     loop {
         //recieve incoming communications
@@ -67,12 +96,19 @@ async fn handle_client(
                 if let Some(file) = &mut cur_file {
                     println!("{}", file_path.display());
                     let hash = hash_file(&file_path, checksums::Algorithm::SHA1);
-                    
-                    utils::net::send(stream, &Packet::EndFileAck { checksum: hash.into_bytes() }.encode()).await?;
+
+                    utils::net::send(
+                        stream,
+                        &Packet::EndFileAck {
+                            checksum: hash.into_bytes(),
+                        }
+                        .encode(),
+                    )
+                    .await?;
                 } else {
                     println!("Couldn't access current file");
                 }
-                
+
                 //clean up
                 cur_file = None;
                 file_path = PathBuf::new();
