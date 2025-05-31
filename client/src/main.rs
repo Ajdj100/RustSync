@@ -11,7 +11,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let root = std::env::current_dir()?;
     let root_name = root.file_name().unwrap();
     let mut stream = tokio::net::TcpStream::connect("127.0.0.1:2600").await?;
-    let mut sent_files: Vec<String> = Vec::new();
 
     for entry in WalkDir::new(&root) {
         let entry = entry?;
