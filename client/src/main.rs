@@ -1,16 +1,28 @@
+use clap::{Arg, Parser};
+use cli::Args;
+use config::{load_config, save_config, ClientConfig};
 use utils::packet::Packet;
 use utils::net::{send, recieve};
 use std::error::Error;
 use std::path::PathBuf;
+use std::process::exit;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use walkdir::WalkDir;
 
+pub mod config;
+pub mod cli;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+
+    let config = build_config().unwrap();
+    
+    let addr = config.remote_addr.unwrap();
+    
     let root = std::env::current_dir()?;
     let root_name = root.file_name().unwrap();
-    let mut stream = tokio::net::TcpStream::connect("127.0.0.1:2600").await?;
+    let mut stream = tokio::net::TcpStream::connect(addr).await?;
 
     for entry in WalkDir::new(&root) {
         let entry = entry?;
@@ -74,4 +86,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
     stream.shutdown().await?;
     println!("done");
     Ok(())
+}
+
+
+fn build_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let mut config = load_config().unwrap();
+
+    if let Some(address) = args.address {
+        config.remote_addr = Some(address);
+    }
+
+    if config.remote_addr.is_none() {
+        print!("Server address not specified. Use --address to set it: ");
+        exit(1);
+    }
+
+    if args.save {
+        save_config(&config)?;
+        println!("Saved configuration")
+    }
+
+    Ok(config)
 }

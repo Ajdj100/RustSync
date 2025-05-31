@@ -6,7 +6,6 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
-use std::env::args;
 use std::error::Error;
 use std::io::Write;
 use std::path::PathBuf;
