@@ -47,21 +47,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 send(&mut stream, &chunk_msg.encode()).await?;
             }
 
+            //end file communications
             send(&mut stream, &Packet::EndFile.encode()).await?;
 
-            // let encoded_ack = recieve(&mut stream).await?;
-            // let ack = SyncMessage::decode(&encoded_ack);
-            // // let client_checksum = 
-            // print!("{} ", rel_path.display());
+            let encoded_ack = recieve(&mut stream).await?;
+            let ack = Packet::decode(&encoded_ack);
 
-            if let Some(name) = entry.file_name().to_str() {
-                println!("{name}", );
-                // sent_files.push(name.to_string());
+            //compute local checksum
+            let client_checksum = checksums::hash_file(&entry.clone().into_path(), checksums::Algorithm::SHA1);
+
+            match ack {
+                Packet::EndFileAck { checksum} => {
+                    let server_checksum = String::from_utf8_lossy(&checksum);
+                    if server_checksum == client_checksum {
+                        println!("[OK] {}", rel_path.file_name().unwrap().to_string_lossy());
+                    } else {
+                        println!("[FAIL] {}", rel_path.file_name().unwrap().to_string_lossy())
+                    }
+                }
+                _ => {
+                    println!("Client recieved unexpected packet");
+                }
             }
         }
     }
-    // recieve(&mut stream).await?;
-
     send(&mut stream, &Packet::EndSession.encode()).await?;
     stream.shutdown().await?;
     println!("done");

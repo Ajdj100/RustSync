@@ -51,7 +51,7 @@ async fn handle_client(
                 fs::create_dir_all(path).await?;
             }
             Packet::BeginFile { relative_path, .. } => {
-                let file_path = &base_path.join(relative_path);
+                file_path = base_path.join(&relative_path);
                 if let Some(parent) = &file_path.parent() {
                     fs::create_dir_all(parent).await?;
                 }
@@ -63,17 +63,19 @@ async fn handle_client(
                 }
             }
             Packet::EndFile => {
-                // let hash: String;
-                // //ack the completed file (and send checksum eventually)
-                // if let Some(file) = &mut cur_file {
-                //     println!("{}", file_path.display());
-                //     hash = hash_file(&file_path, checksums::Algorithm::SHA1);
-                // } else {
-                //     hash = String::from("");
-                // }
-                // utils::net::send(stream, &packet::SyncMessage::EndFileAck { checksum: Vec::from(hash) }.encode()).await?;
-
+                //ack the completed file (and send checksum eventually)
+                if let Some(file) = &mut cur_file {
+                    println!("{}", file_path.display());
+                    let hash = hash_file(&file_path, checksums::Algorithm::SHA1);
+                    
+                    utils::net::send(stream, &Packet::EndFileAck { checksum: hash.into_bytes() }.encode()).await?;
+                } else {
+                    println!("Couldn't access current file");
+                }
+                
+                //clean up
                 cur_file = None;
+                file_path = PathBuf::new();
             }
             Packet::EndFileAck { checksum: _ } => {
                 println!("Somehow the server recieved an EndFileAck, this should never happen.")

@@ -7,3 +7,4 @@ edition = "2024"
 utils = { path = "../utils"}
 tokio = { version = "1.45.1", features = ["full"] }
 walkdir = "2"
+checksums = "0.9.1"
