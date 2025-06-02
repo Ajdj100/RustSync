@@ -1,9 +1,10 @@
-use clap::{Arg, Parser};
+use clap::{Parser};
 use cli::Args;
 use config::{load_config, save_config, ClientConfig};
 use utils::packet::Packet;
 use utils::net::{send, recieve};
 use std::error::Error;
+use std::net::{SocketAddr};
 use std::path::PathBuf;
 use std::process::exit;
 use tokio::fs::File;
@@ -22,6 +23,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     let root = std::env::current_dir()?;
     let root_name = root.file_name().unwrap();
+
     let mut stream = tokio::net::TcpStream::connect(addr).await?;
 
     for entry in WalkDir::new(&root) {
@@ -91,14 +93,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 fn build_config() -> Result<ClientConfig, Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let mut config = load_config().unwrap();
-
+    let mut config = match load_config() {
+        Some(cfg) => cfg,
+        None => ClientConfig::default()
+    };
+..
     if let Some(address) = args.address {
+        if address.parse::<SocketAddr>().is_err() {
+            eprintln!("Bad address format");
+            exit(1);
+        }
         config.remote_addr = Some(address);
-    }
+    };
 
+    //guard against unspecified address
     if config.remote_addr.is_none() {
-        print!("Server address not specified. Use --address to set it: ");
+        println!("Server address not specified. Use --address (-a) to set it");
         exit(1);
     }
 
